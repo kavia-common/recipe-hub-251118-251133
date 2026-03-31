@@ -2,6 +2,16 @@ import { MOCK_APP_DATA } from '@/data/mock-data';
 import type { AppData, RecipeDetail, RecipeSummary } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+const API_ACCESS_TOKEN = process.env.API_ACCESS_TOKEN ?? '';
+
+/**
+ * Builds optional authorization headers for authenticated backend calls.
+ *
+ * @return {HeadersInit} Authorization headers when a token is configured.
+ */
+function getAuthHeaders(): HeadersInit {
+    return API_ACCESS_TOKEN ? { Authorization: `Bearer ${API_ACCESS_TOKEN}` } : {};
+}
 
 /**
  * Safely fetches JSON from the backend API.
@@ -17,6 +27,7 @@ async function safeFetchJson<T>(path: string, init?: RequestInit): Promise<T | n
             ...init,
             headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeaders(),
                 ...(init?.headers ?? {}),
             },
             cache: 'no-store',
@@ -57,13 +68,18 @@ export async function getAppData(): Promise<AppData> {
         }),
     );
 
-    const favoritesResponse = await safeFetchJson<AppData['favoriteRecipes']>('/favorites');
-    const shoppingListResponse = await safeFetchJson<AppData['shoppingList']>('/shopping-list');
-    const profileResponse = await safeFetchJson<AppData['profile']>('/profile');
-    const moderationResponse = await safeFetchJson<AppData['moderationQueue']>('/moderation');
     const categoriesResponse = await safeFetchJson<AppData['categories']>('/categories');
     const tagsResponse = await safeFetchJson<AppData['tags']>('/tags');
-    const mealPlanResponse = await safeFetchJson<AppData['mealPlan']>('/meal-plan');
+    const favoritesResponse = API_ACCESS_TOKEN
+        ? await safeFetchJson<AppData['favoriteRecipes']>('/favorites')
+        : null;
+    const shoppingListResponse = API_ACCESS_TOKEN
+        ? await safeFetchJson<AppData['shoppingList']>('/shopping-list')
+        : null;
+    const profileResponse = API_ACCESS_TOKEN
+        ? await safeFetchJson<AppData['profile']>('/profile')
+        : null;
+    const moderationResponse = await safeFetchJson<AppData['moderationQueue']>('/moderation');
 
     return {
         ...MOCK_APP_DATA,
@@ -75,7 +91,7 @@ export async function getAppData(): Promise<AppData> {
         moderationQueue: moderationResponse ?? MOCK_APP_DATA.moderationQueue,
         categories: categoriesResponse ?? MOCK_APP_DATA.categories,
         tags: tagsResponse ?? MOCK_APP_DATA.tags,
-        mealPlan: mealPlanResponse ?? MOCK_APP_DATA.mealPlan,
+        mealPlan: MOCK_APP_DATA.mealPlan,
         featuredRecipeId:
             recipes.find((recipe) => recipe.id === MOCK_APP_DATA.featuredRecipeId)?.id ??
             recipes[0]?.id ??
